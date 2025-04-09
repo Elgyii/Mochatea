@@ -1,0 +1,30 @@
+const mocha = require('mocha');
+const Spec = mocha.reporters.Spec;
+const Base = mocha.reporters.Base;
+
+class CustomSummary extends Spec {
+  constructor(runner) {
+    super(runner);
+
+    const failures = [];
+    let failCount = 0;
+
+    runner.on('fail', (test, err) => {
+      failCount++;
+      failures.push({ count: failCount, test, err, indent: Base.indents });
+    });
+
+    runner.once('end', () => {
+      if (failures.length === 0) return;
+
+      console.log('\n=== Custom Failure Summary ===\n');
+      failures.forEach(({ count, test, err, indent }) => {
+        const ind = '  '.repeat(indent);
+        console.log(`${ind}(${count}) FAIL: ${test.fullTitle()}`);
+        console.log(`${ind}    ${err.message}\n`);
+      });
+    });
+  }
+}
+
+module.exports = CustomSummary;
