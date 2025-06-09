@@ -28,3 +28,29 @@ class CustomSummary extends Spec {
 }
 
 module.exports = CustomSummary;
+
+function syncDropdownWithTable(table, dropdownId, skipFixedCount = 2) {
+    const colOrder = table.colReorder.order(); // Full current column order (original idxs)
+    const dropdown = document.getElementById(dropdownId);
+    const allItems = Array.from(dropdown.children); // Existing dropdown items
+
+    // Build new dropdown
+    const fragment = document.createDocumentFragment();
+
+    colOrder.forEach((originalIdx, displayIdx) => {
+        // Skip fixed columns (non-reorderable)
+        if (displayIdx < skipFixedCount) return;
+
+        const column = table.column(originalIdx);
+        if (!column.visible()) return;
+
+        // Match dropdown item with the original column index
+        const item = allItems.find(el => parseInt(el.dataset.colIdx) === originalIdx);
+        if (item) fragment.appendChild(item);
+    });
+
+    // Replace dropdown content with reordered list
+    dropdown.innerHTML = '';
+    dropdown.appendChild(fragment);
+}
+
