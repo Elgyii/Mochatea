@@ -27,6 +27,7 @@ class CustomSummary extends Spec {
   }
 }
 
+====== DataTables =====
 module.exports = CustomSummary;
 
 function syncDropdownWithTable(table, dropdownId, skipFixedCount = 2) {
@@ -54,3 +55,85 @@ function syncDropdownWithTable(table, dropdownId, skipFixedCount = 2) {
     dropdown.appendChild(fragment);
 }
 
+==== D3 ====
+function drawChart(el, width, height, data) {
+  const svg = d3.select(el).select("svg");
+  const chart = svg.select("g.chart-content"); // your main group
+
+  // Update scales based on new width/height
+  xScale.range([0, width]);
+  yScale.range([height, 0]);
+
+  // DATA JOIN
+  const line = d3.line()
+    .x((d, i) => xScale(i))
+    .y(d => yScale(d));
+
+  // Re-bind and update path
+  const path = chart.selectAll("path.line").data([data]);
+
+  path.join("path")
+    .attr("class", "line")
+    .attr("d", line)
+    .attr("fill", "none")
+    .attr("stroke", "steelblue");
+}
+
+function createResponsiveChart(el, data, drawFn) {
+  const resizeState = new WeakMap();
+  const visibilityState = new WeakMap();
+  const drawnState = new WeakMap();
+
+  // Create and inject SVG if missing
+  let svg = d3.select(el).select("svg");
+  if (svg.empty()) {
+    svg = d3.select(el)
+      .append("svg")
+      .attr("preserveAspectRatio", "xMinYMin meet")
+      .style("width", "100%")
+      .style("height", "100%");
+  }
+
+  function maybeRedraw(target) {
+    const size = resizeState.get(target);
+    const isVisible = visibilityState.get(target);
+
+    if (!isVisible || !size || size.width === 0 || size.height === 0) return;
+
+    const key = `${Math.round(size.width)}x${Math.round(size.height)}`;
+    if (drawnState.get(target) === key) return; // skip identical draw
+
+    drawnState.set(target, key);
+
+    requestAnimationFrame(() => {
+      svg.attr("viewBox", `0 0 ${size.width} ${size.height}`);
+      drawFn(target, svg, size.width, size.height, data);
+    });
+  }
+
+  const ro = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      resizeState.set(entry.target, entry.contentRect);
+      maybeRedraw(entry.target);
+    }
+  });
+
+  const io = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      visibilityState.set(entry.target, entry.isIntersecting);
+      maybeRedraw(entry.target);
+    }
+  }, { threshold: 0.1 });
+
+  // Start observing
+  ro.observe(el);
+  io.observe(el);
+}
+
+const zoom = d3.zoom()
+  .scaleExtent([1, 10])
+  .on("zoom", ({ transform }) => {
+    svg.select("g.chart").attr("transform", `translate(${margin.left + transform.x},${margin.top}) scale(${transform.k},1)`);
+  });
+
+svg.call(zoom);
