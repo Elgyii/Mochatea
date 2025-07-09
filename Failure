@@ -137,3 +137,42 @@ const zoom = d3.zoom()
   });
 
 svg.call(zoom);
+
+
+function applyCursorLogic(label) {
+  const input = label.querySelector('.btn-check');
+  if (!input) return;
+
+  const updateCursor = () => {
+    label.style.cursor = input.disabled ? 'not-allowed' : '';
+  };
+
+  // Initial state
+  updateCursor();
+
+  // Watch for `disabled` attribute changes
+  const attrObserver = new MutationObserver(updateCursor);
+  attrObserver.observe(input, { attributes: true, attributeFilter: ['disabled'] });
+}
+
+// Initial pass for existing labels
+document.querySelectorAll('label.btn').forEach(applyCursorLogic);
+
+// Watch for future additions
+const rootObserver = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    mutation.addedNodes.forEach((node) => {
+      if (!(node instanceof HTMLElement)) return;
+
+      // Case 1: a new <label class="btn"> directly added
+      if (node.matches('label.btn')) {
+        applyCursorLogic(node);
+      }
+
+      // Case 2: container added that has one or more labels inside
+      node.querySelectorAll?.('label.btn').forEach(applyCursorLogic);
+    });
+  });
+});
+
+rootObserver.observe(document.body, { childList: true, subtree: true });
