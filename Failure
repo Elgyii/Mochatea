@@ -176,3 +176,14 @@ const rootObserver = new MutationObserver((mutations) => {
 });
 
 rootObserver.observe(document.body, { childList: true, subtree: true });
+
+document.addEventListener('click', function (e) {
+  const label = e.target.closest('label.btn');
+  if (!label) return;
+
+  const input = label.querySelector('.btn-check');
+  if (input?.disabled) {
+    e.stopImmediatePropagation(); // prevents Bootstrap toggling .active
+    e.preventDefault();
+  }
+}, true); // useCapture = true to intercept before Bootstrap's handler
