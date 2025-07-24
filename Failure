@@ -187,3 +187,79 @@ document.addEventListener('click', function (e) {
     e.preventDefault();
   }
 }, true); // useCapture = true to intercept before Bootstrap's handler
+
+WITH a_avg AS (
+  SELECT
+    section,
+    date_trunc('minute', timestamp) - INTERVAL '1 minute' * EXTRACT(MINUTE FROM timestamp)::int % 10 AS time_bucket,
+    AVG(val1) AS avg_val1,
+    AVG(val2) AS avg_val2,
+    AVG(val3) AS avg_val3
+  FROM table_a
+  WHERE timestamp BETWEEN '2025-07-25 00:00:00' AND '2025-07-25 23:59:59'
+  GROUP BY section, time_bucket
+),
+b_avg AS (
+  SELECT
+    section,
+    date_trunc('minute', timestamp) - INTERVAL '1 minute' * EXTRACT(MINUTE FROM timestamp)::int % 10 AS time_bucket,
+    AVG(valx) AS avg_valx,
+    AVG(valy) AS avg_valy
+  FROM table_b
+  WHERE timestamp BETWEEN '2025-07-25 00:00:00' AND '2025-07-25 23:59:59'
+  GROUP BY section, time_bucket
+)
+SELECT
+  a.section,
+  a.time_bucket,
+  a.avg_val1,
+  a.avg_val2,
+  a.avg_val3,
+  b.avg_valx,
+  b.avg_valy
+FROM a_avg a
+JOIN b_avg b ON a.section = b.section AND a.time_bucket = b.time_bucket
+ORDER BY a.section, a.time_bucket;
+
+$fieldsA = ['traffic_in', 'traffic_out', 'status_code'];
+$fieldsB = ['cpu_usage', 'mem_usage'];
+
+function buildAvgSelect($fields, $tableAlias = '') {
+    $selectParts = [];
+    foreach ($fields as $field) {
+        $selectParts[] = "AVG({$tableAlias}{$field}) AS avg_{$field}";
+    }
+    return implode(",\n    ", $selectParts);
+}
+
+$selectA = buildAvgSelect($fieldsA);
+$selectB = buildAvgSelect($fieldsB);
+
+$sql = "
+WITH a_avg AS (
+  SELECT
+    device_id,
+    date_trunc('minute', timestamp) - INTERVAL '1 minute' * EXTRACT(MINUTE FROM timestamp)::int % 10 AS time_bucket,
+    {$selectA}
+  FROM device_traffic_log
+  WHERE timestamp BETWEEN :start AND :end
+  GROUP BY device_id, time_bucket
+),
+b_avg AS (
+  SELECT
+    device_id,
+    date_trunc('minute', timestamp) - INTERVAL '1 minute' * EXTRACT(MINUTE FROM timestamp)::int % 10 AS time_bucket,
+    {$selectB}
+  FROM device_perf_log
+  WHERE timestamp BETWEEN :start AND :end
+  GROUP BY device_id, time_bucket
+)
+SELECT
+  a.device_id,
+  a.time_bucket,
+  {$selectA},
+  {$selectB}
+FROM a_avg a
+JOIN b_avg b ON a.device_id = b.device_id AND a.time_bucket = b.time_bucket
+ORDER BY a.device_id, a.time_bucket;
+";
