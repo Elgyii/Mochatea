@@ -263,3 +263,91 @@ FROM a_avg a
 JOIN b_avg b ON a.device_id = b.device_id AND a.time_bucket = b.time_bucket
 ORDER BY a.device_id, a.time_bucket;
 ";
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Drag Snap to cm Grid</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    svg { border: 1px solid #aaa; }
+    .draggable { cursor: move; fill: steelblue; }
+  </style>
+</head>
+<body>
+
+<svg id="map" width="800" height="600"></svg>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+  // === CONFIG ===
+  const mapWidth_cm = 40;  // User-defined width in cm
+  const mapHeight_cm = 30; // User-defined height in cm
+
+  const svg = d3.select("#map");
+  const svgWidth_px = parseInt(svg.attr("width"));
+  const svgHeight_px = parseInt(svg.attr("height"));
+
+  // Conversion ratios
+  const pxPerCmX = svgWidth_px / mapWidth_cm;
+  const pxPerCmY = svgHeight_px / mapHeight_cm;
+  const cmPerPxX = 1 / pxPerCmX;
+  const cmPerPxY = 1 / pxPerCmY;
+
+  // === DYNAMIC STEP ===
+  const desiredSteps = 50;
+  const stepX_cm = mapWidth_cm / desiredSteps;
+  const stepY_cm = mapHeight_cm / desiredSteps;
+
+  // === HELPER FUNCTIONS ===
+  const pxToCm = (px, axis = 'x') => axis === 'x' ? px * cmPerPxX : px * cmPerPxY;
+  const cmToPx = (cm, axis = 'x') => axis === 'x' ? cm * pxPerCmX : cm * pxPerCmY;
+
+  function snapToGrid(cmValue, step) {
+    return Math.round(cmValue / step) * step;
+  }
+
+  // === ICON ===
+  const icon = svg.append("circle")
+    .attr("class", "draggable")
+    .attr("r", 10)
+    .attr("cx", 100)
+    .attr("cy", 100)
+    .call(
+      d3.drag().on("drag", function (event) {
+        let rawX_px = event.x;
+        let rawY_px = event.y;
+
+        // Convert to cm
+        let x_cm = pxToCm(rawX_px, 'x');
+        let y_cm = pxToCm(rawY_px, 'y');
+
+        // Snap in cm
+        let snappedX_cm = snapToGrid(x_cm, stepX_cm);
+        let snappedY_cm = snapToGrid(y_cm, stepY_cm);
+
+        // Back to px
+        let snappedX_px = cmToPx(snappedX_cm, 'x');
+        let snappedY_px = cmToPx(snappedY_cm, 'y');
+
+        // Apply
+        d3.select(this)
+          .attr("cx", snappedX_px)
+          .attr("cy", snappedY_px);
+      })
+    );
+
+  // === DEBUG CORNERS (OPTIONAL) ===
+  [[0,0], [mapWidth_cm,0], [0,mapHeight_cm], [mapWidth_cm,mapHeight_cm]].forEach(([x, y]) => {
+    svg.append("circle")
+      .attr("cx", cmToPx(x, 'x'))
+      .attr("cy", cmToPx(y, 'y'))
+      .attr("r", 5)
+      .attr("fill", "red");
+  });
+
+</script>
+</body>
+</html>
