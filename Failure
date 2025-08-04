@@ -351,3 +351,98 @@ ORDER BY a.device_id, a.time_bucket;
 </script>
 </body>
 </html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Drag Snap with px-aware cm Steps</title>
+  <style>
+    body { margin: 0; }
+    svg { border: 1px solid #ccc; background-color: #f9f9f9; }
+    .draggable { fill: steelblue; cursor: grab; }
+  </style>
+</head>
+<body>
+
+<svg id="map" width="1000" height="750"></svg>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+  // === CONFIGURABLE MAP SIZE ===
+  const mapWidth_cm = 100;   // e.g., 100 cm wide
+  const mapHeight_cm = 75;   // e.g., 75 cm tall
+
+  const svg = d3.select("#map");
+  const svgWidth_px = +svg.attr("width");
+  const svgHeight_px = +svg.attr("height");
+
+  // === CONVERSIONS ===
+  const pxPerCmX = svgWidth_px / mapWidth_cm;
+  const pxPerCmY = svgHeight_px / mapHeight_cm;
+  const cmPerPxX = 1 / pxPerCmX;
+  const cmPerPxY = 1 / pxPerCmY;
+
+  // === DYNAMIC STEP BASED ON PIXEL TARGET ===
+  const targetStep_px = 20; // snap every 20 pixels (regardless of resolution)
+  const stepX_cm = targetStep_px * cmPerPxX;
+  const stepY_cm = targetStep_px * cmPerPxY;
+
+  const pxToCm = (px, axis = 'x') => axis === 'x' ? px * cmPerPxX : px * cmPerPxY;
+  const cmToPx = (cm, axis = 'x') => axis === 'x' ? cm * pxPerCmX : cm * pxPerCmY;
+  const snap = (val_cm, step_cm) => Math.round(val_cm / step_cm) * step_cm;
+
+  // === DRAGGABLE ICON ===
+  const icon = svg.append("circle")
+    .attr("class", "draggable")
+    .attr("r", 10)
+    .attr("cx", cmToPx(10, 'x'))
+    .attr("cy", cmToPx(10, 'y'))
+    .call(d3.drag().on("drag", function (event) {
+      let x_cm = pxToCm(event.x, 'x');
+      let y_cm = pxToCm(event.y, 'y');
+
+      let snappedX_cm = snap(x_cm, stepX_cm);
+      let snappedY_cm = snap(y_cm, stepY_cm);
+
+      d3.select(this)
+        .attr("cx", cmToPx(snappedX_cm, 'x'))
+        .attr("cy", cmToPx(snappedY_cm, 'y'));
+    }));
+
+  // === CORNER MARKERS ===
+  const corners_cm = [
+    [0, 0],
+    [mapWidth_cm, 0],
+    [0, mapHeight_cm],
+    [mapWidth_cm, mapHeight_cm]
+  ];
+
+  corners_cm.forEach(([x_cm, y_cm]) => {
+    svg.append("circle")
+      .attr("cx", cmToPx(x_cm, 'x'))
+      .attr("cy", cmToPx(y_cm, 'y'))
+      .attr("r", 4)
+      .attr("fill", "red");
+  });
+
+  // === OPTIONAL GRID DISPLAY ===
+  for (let x_cm = 0; x_cm <= mapWidth_cm; x_cm += stepX_cm) {
+    svg.append("line")
+      .attr("x1", cmToPx(x_cm, 'x'))
+      .attr("y1", 0)
+      .attr("x2", cmToPx(x_cm, 'x'))
+      .attr("y2", svgHeight_px)
+      .attr("stroke", "#eee");
+  }
+  for (let y_cm = 0; y_cm <= mapHeight_cm; y_cm += stepY_cm) {
+    svg.append("line")
+      .attr("x1", 0)
+      .attr("y1", cmToPx(y_cm, 'y'))
+      .attr("x2", svgWidth_px)
+      .attr("y2", cmToPx(y_cm, 'y'))
+      .attr("stroke", "#eee");
+  }
+</script>
+</body>
+</html>
