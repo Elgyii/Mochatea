@@ -26,3 +26,55 @@ class CustomSummary extends Spec {
     });
   }
 }
+
+
+// fixtures returning page
+export const test = base.extend<{
+  sessionPage: Page;
+  pageAndUpload: { page: Page, upload: (f:string)=>Promise<void> };
+}>({
+  sessionPage: [async ({ playwright }, use) => {
+    const browser = await playwright.chromium.launch();
+    const context = await browser.newContext({ storageState: 'storageState.json', ignoreHTTPSErrors: true });
+    const page = await context.newPage();
+    await use(page);
+    await context.close();
+    await browser.close();
+  }, { scope: 'worker' }],
+
+  pageAndUpload: async ({ sessionPage }, use) => {
+    // NOTE: sessionPage is the shared page. create a new page if you need isolation
+    const upload = async (filePath: string) => {
+      await sessionPage.goto('/upload');
+      await sessionPage.setInputFiles('input[type="file"]', filePath);
+      await sessionPage.click('#submit');
+    };
+    await use({ page: sessionPage, upload });
+  }
+});
+
+// fixtures.ts
+import { test as base } from '@playwright/test';
+
+export const test = base.extend<{ authedPage: Page }>({
+  authedPage: async ({ browser }, use) => {
+    const context = await browser.newContext({ storageState: 'auth.json' });
+    const page = await context.newPage();
+    await use(page);
+    await context.close();
+  }
+});
+
+export { expect } from '@playwright/test';
+
+import { test, expect } from './fixtures';
+
+test('panel A works', async ({ authedPage }) => {
+  await authedPage.goto('/panel-a');
+  // ...
+});
+
+test('panel B works', async ({ authedPage }) => {
+  await authedPage.goto('/panel-b');
+  // ...
+});
